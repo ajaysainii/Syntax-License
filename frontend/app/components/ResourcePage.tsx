@@ -600,10 +600,12 @@ function CustomerForm({ onSubmit }: { onSubmit: (event: FormEvent<HTMLFormElemen
 function UserForm({
   customers,
   initial,
+  submitLabel,
   onSubmit
 }: {
   customers: Customer[];
   initial?: User | null;
+  submitLabel?: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   return (
@@ -619,7 +621,7 @@ function UserForm({
       <Field label="Full name"><input name="full_name" placeholder="Avery Cole" defaultValue={initial?.full_name ?? ""} required /></Field>
       <Field label="Email"><input name="email" placeholder="avery@northwind.test" defaultValue={initial?.email ?? ""} type="email" required /></Field>
       <Field label="Role"><input name="role" placeholder="owner" defaultValue={initial?.role ?? "owner"} /></Field>
-      <PrimaryButton text={initial ? "Save Changes" : "Save User"} />
+      <PrimaryButton text={submitLabel ?? (initial ? "Save Changes" : "Save User")} />
     </form>
   );
 }
