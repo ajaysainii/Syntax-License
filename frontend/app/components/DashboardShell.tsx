@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -11,7 +12,7 @@ const links = [
   { href: "/admins", label: "Admins" },
   { href: "/customers", label: "Customers" },
   { href: "/audit", label: "Audit Log" }
-];
+] satisfies Array<{ href: Route; label: string }>;
 
 export function DashboardShell({
   children,
