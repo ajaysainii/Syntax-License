@@ -59,7 +59,7 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("features", sa.JSON(), nullable=False),
-        sa.Column("license_key_hash", sa.Text(), nullable=False),
+        sa.Column("license_key_hash", sa.String(length=64), nullable=False),
         sa.Column("key_prefix", sa.String(length=24), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -125,4 +125,3 @@ def downgrade() -> None:
     op.drop_table("customers")
     op.drop_index("ix_admin_users_email", table_name="admin_users")
     op.drop_table("admin_users")
-
