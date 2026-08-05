@@ -106,14 +106,16 @@ Local run:
 ./scripts/local-run.sh
 ```
 
+Default local ports used by the script:
+- Backend: `8100`
+- Frontend: `3100`
+
 Server deploy example:
 
 ```bash
-sudo APP_ROOT=/var/www/syntax-licensing \
-BACKEND_ENV_FILE=/var/www/syntax-licensing/backend/.env \
-FRONTEND_ENV_FILE=/var/www/syntax-licensing/frontend/.env.production \
-APP_USER=www-data \
-APP_GROUP=www-data \
+sudo APP_ROOT=/var/www/Syntax-License \
+BACKEND_ENV_FILE=/var/www/Syntax-License/backend/.env \
+FRONTEND_ENV_FILE=/var/www/Syntax-License/frontend/.env.production \
 ./scripts/deploy-server.sh
 ```
 
@@ -173,6 +175,16 @@ docker compose -f docker-compose.yml up -d --build
 - `/api/*` -> backend container
 
 An example reverse proxy config is included at [deploy/nginx.conf](/Users/itaims/Projects/Syntax%20License%20/deploy/nginx.conf).
+
+For a non-Docker server deployment, the script now defaults to:
+- Backend: `8100`
+- Frontend: `3100`
+
+You can still override them when needed:
+
+```bash
+BACKEND_PORT=8100 FRONTEND_PORT=3100 ./scripts/deploy-server.sh
+```
 
 6. Run migrations on deploy:
 

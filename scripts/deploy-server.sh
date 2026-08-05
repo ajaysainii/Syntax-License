@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-APP_ROOT="${APP_ROOT:-/var/www/syntax-licensing}"
+APP_ROOT="${APP_ROOT:-/var/www/Syntax-License}"
 APP_USER="${APP_USER:-www-data}"
 APP_GROUP="${APP_GROUP:-www-data}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+BACKEND_PORT="${BACKEND_PORT:-8100}"
+FRONTEND_PORT="${FRONTEND_PORT:-3100}"
 BACKEND_SERVICE_NAME="${BACKEND_SERVICE_NAME:-syntax-licensing-backend}"
 FRONTEND_SERVICE_NAME="${FRONTEND_SERVICE_NAME:-syntax-licensing-frontend}"
 BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-$APP_ROOT/backend/.env}"
@@ -41,6 +41,10 @@ require_file "$FRONTEND_ENV_FILE"
 require_file "$BACKEND_DIR/requirements.txt"
 require_file "$FRONTEND_DIR/package.json"
 
+cat >"$FRONTEND_ENV_FILE" <<EOF
+NEXT_PUBLIC_API_BASE_URL=https://$DOMAIN/api/v1
+EOF
+
 mkdir -p "$BACKEND_VENV"
 python3 -m venv "$BACKEND_VENV"
 source "$BACKEND_VENV/bin/activate"
@@ -51,7 +55,7 @@ pushd "$BACKEND_DIR" >/dev/null
 set -a
 source "$BACKEND_ENV_FILE"
 set +a
-alembic upgrade head
+PYTHONPATH="$BACKEND_DIR" alembic upgrade head
 python seed.py
 popd >/dev/null
 
@@ -74,6 +78,7 @@ User=$APP_USER
 Group=$APP_GROUP
 WorkingDirectory=$BACKEND_DIR
 EnvironmentFile=$BACKEND_ENV_FILE
+Environment=PYTHONPATH=$BACKEND_DIR
 ExecStart=$BACKEND_VENV/bin/uvicorn app.main:app --host 127.0.0.1 --port $BACKEND_PORT
 Restart=always
 RestartSec=5
@@ -112,6 +117,8 @@ Deployment complete.
 Backend service:  $BACKEND_SERVICE_NAME
 Frontend service: $FRONTEND_SERVICE_NAME
 Expected domain:  $DOMAIN
+Backend port:     $BACKEND_PORT
+Frontend port:    $FRONTEND_PORT
 
 Verify:
   systemctl status $BACKEND_SERVICE_NAME
@@ -119,4 +126,3 @@ Verify:
   journalctl -u $BACKEND_SERVICE_NAME -n 100 --no-pager
   journalctl -u $FRONTEND_SERVICE_NAME -n 100 --no-pager
 EOF
-
