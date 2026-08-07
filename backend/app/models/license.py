@@ -19,6 +19,7 @@ class License(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     features: Mapped[list[str]] = mapped_column(JSON, default=list)
     license_key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    license_key_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
     key_prefix: Mapped[str] = mapped_column(String(24), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(

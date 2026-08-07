@@ -50,6 +50,8 @@ export const api = {
     ),
   createLicense: (token: string, payload: unknown) =>
     request<{ license_key: string; license: unknown }>("/licenses", { method: "POST", body: JSON.stringify(payload) }, token),
+  getLicenseKey: (token: string, id: string) =>
+    request<{ license_key: string }>(`/licenses/${id}/key`, {}, token),
   changeLicenseStatus: (token: string, id: string, payload: unknown) =>
     request(`/licenses/${id}/actions`, { method: "POST", body: JSON.stringify(payload) }, token),
   auditLogs: (token: string) => request<{ items: unknown[] }>("/audit-logs", {}, token)

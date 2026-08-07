@@ -1,8 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
+from app.db.base import __all__  # noqa: F401
 from app.core.config import settings
-from app.core.security import hash_password
-from app.db.session import SessionLocal, create_db_and_tables
+from app.core.security import encrypt_license_key, hash_password
+from app.db.session import SessionLocal
 from app.models.admin_user import AdminUser
 from app.models.customer import Customer
 from app.models.user import User
@@ -11,7 +12,6 @@ from app.services.licensing import create_license_key, hash_license_key
 
 
 def run() -> None:
-    create_db_and_tables()
     db = SessionLocal()
     admin = db.query(AdminUser).filter(AdminUser.email == settings.admin_email.lower()).first()
     if not admin:
@@ -56,6 +56,7 @@ def run() -> None:
                 expires_at=datetime.now(UTC) + timedelta(days=365),
                 features=["team-sync", "priority-support", "updates"],
                 license_key_hash=hash_license_key(plain),
+                license_key_encrypted=encrypt_license_key(plain),
                 key_prefix=plain[:12],
             )
         )
@@ -67,4 +68,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-

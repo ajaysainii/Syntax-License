@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
-from app.db.session import create_db_and_tables
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -14,7 +13,6 @@ from app.middleware.rate_limit import RateLimitMiddleware
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging()
-    create_db_and_tables()
     yield
 
 
@@ -46,4 +44,3 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
-

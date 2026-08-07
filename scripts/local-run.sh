@@ -36,6 +36,7 @@ source "$BACKEND_VENV/bin/activate"
 pip install -r "$BACKEND_DIR/requirements.txt"
 
 pushd "$BACKEND_DIR" >/dev/null
+"$BACKEND_VENV/bin/alembic" upgrade head
 "$BACKEND_VENV/bin/python" seed.py
 "$BACKEND_VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" --reload &
 popd >/dev/null

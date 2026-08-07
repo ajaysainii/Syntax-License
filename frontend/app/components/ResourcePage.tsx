@@ -18,6 +18,8 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [licenseKey, setLicenseKey] = useState<string | null>(null);
+  const [revealedLicenseKeys, setRevealedLicenseKeys] = useState<Record<string, string>>({});
+  const [revealingLicenseId, setRevealingLicenseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [licenseModalOpen, setLicenseModalOpen] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -76,6 +78,7 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
       notes: form.get("notes")
     });
     event.currentTarget.reset();
+    setCustomerModalOpen(false);
     await load();
   }
 
@@ -90,6 +93,7 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
       role: form.get("role")
     });
     event.currentTarget.reset();
+    setUserModalOpen(false);
     await load();
   }
 
@@ -109,7 +113,20 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
     });
     setLicenseKey(response.license_key);
     event.currentTarget.reset();
+    setLicenseModalOpen(false);
     await load();
+  }
+
+  async function revealLicenseKey(id: string) {
+    if (!token) return;
+    if (revealedLicenseKeys[id]) return;
+    setRevealingLicenseId(id);
+    try {
+      const response = await api.getLicenseKey(token, id);
+      setRevealedLicenseKeys((current) => ({ ...current, [id]: response.license_key }));
+    } finally {
+      setRevealingLicenseId(null);
+    }
   }
 
   async function updateLicense(id: string, action: "suspend" | "revoke" | "reactivate") {
@@ -266,6 +283,11 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
               </div>
             </div>
             {error ? <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+            {kind === "licenses" && licenseKey ? (
+              <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                New license issued: <span className="font-mono">{licenseKey}</span>
+              </div>
+            ) : null}
             <div className="overflow-x-auto">
               {kind === "customers" ? <CustomersTable rows={items as Customer[]} /> : null}
               {kind === "users" ? <UsersTable rows={items as User[]} onEdit={(user) => {
@@ -276,7 +298,15 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
                 setSelectedAdmin(admin);
                 setAdminModalOpen(true);
               }} /> : null}
-              {kind === "licenses" ? <LicensesTable rows={items as License[]} onAction={updateLicense} /> : null}
+              {kind === "licenses" ? (
+                <LicensesTable
+                  rows={items as License[]}
+                  onAction={updateLicense}
+                  onReveal={revealLicenseKey}
+                  revealedKeys={revealedLicenseKeys}
+                  revealingLicenseId={revealingLicenseId}
+                />
+              ) : null}
             </div>
           </div>
         </section>
@@ -311,12 +341,8 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
         >
           <LicenseForm
             users={users}
-            licenseKey={licenseKey}
             onSubmit={async (event) => {
               await onCreateLicense(event);
-            }}
-            onDone={() => {
-              setLicenseModalOpen(false);
             }}
           />
         </Modal>
@@ -327,12 +353,7 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
           subtitle="Create a new customer account."
           onClose={() => setCustomerModalOpen(false)}
         >
-          <CustomerForm
-            onSubmit={async (event) => {
-              await onCreateCustomer(event);
-              setCustomerModalOpen(false);
-            }}
-          />
+          <CustomerForm onSubmit={onCreateCustomer} />
         </Modal>
       ) : null}
       {kind === "users" && userModalOpen && selectedUser ? (
@@ -353,13 +374,7 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
           subtitle="Create a new user under an existing customer."
           onClose={() => setUserModalOpen(false)}
         >
-          <UserForm
-            customers={customers}
-            onSubmit={async (event) => {
-              await onCreateUser(event);
-              setUserModalOpen(false);
-            }}
-          />
+          <UserForm customers={customers} onSubmit={onCreateUser} />
         </Modal>
       ) : null}
       {kind === "admins" && adminModalOpen && selectedAdmin ? (
@@ -508,10 +523,16 @@ function AdminsTable({ rows, onEdit }: { rows: Admin[]; onEdit: (admin: Admin) =
 
 function LicensesTable({
   rows,
-  onAction
+  onAction,
+  onReveal,
+  revealedKeys,
+  revealingLicenseId
 }: {
   rows: License[];
   onAction: (id: string, action: "suspend" | "revoke" | "reactivate") => Promise<void>;
+  onReveal: (id: string) => Promise<void>;
+  revealedKeys: Record<string, string>;
+  revealingLicenseId: string | null;
 }) {
   return (
     <TableShell>
@@ -531,7 +552,18 @@ function LicensesTable({
               <div className="mt-1 text-xs text-gray-500">{row.features.join(", ") || "No features"}</div>
             </Td>
             <Td><StatusBadge status={row.status} /></Td>
-            <Td className="font-mono text-xs">{row.key_prefix}</Td>
+            <Td className="font-mono text-xs">
+              <div className="flex items-center gap-2">
+                <span>{revealedKeys[row.id] ?? row.key_prefix}</span>
+                <button
+                  className="inline-flex h-7 items-center rounded-lg border border-gray-300 bg-white px-2 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+                  onClick={() => void onReveal(row.id)}
+                  type="button"
+                >
+                  {revealingLicenseId === row.id ? "..." : "Eye"}
+                </button>
+              </div>
+            </Td>
             <Td className="whitespace-nowrap">
               {row.status === "active" ? (
                 <button
@@ -628,22 +660,15 @@ function UserForm({
 
 function LicenseForm({
   users,
-  licenseKey,
-  onDone,
   onSubmit
 }: {
   users: User[];
-  licenseKey: string | null;
-  onDone?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   return (
     <form
       className="space-y-3"
-      onSubmit={async (event) => {
-        await onSubmit(event);
-        onDone?.();
-      }}
+      onSubmit={(event) => void onSubmit(event)}
     >
       <Field label="User">
         <select name="user_id" required>
@@ -653,11 +678,16 @@ function LicenseForm({
           ))}
         </select>
       </Field>
-      <Field label="Product"><input name="product" placeholder="syntax-cli" required /></Field>
+      <Field label="Product">
+        <select defaultValue="syntax" name="product" required>
+          <option value="syntax">Syntax</option>
+          <option value="syntax-cli">Syntax CLI (alias)</option>
+          <option value="syntax-desktop">Syntax Desktop (alias)</option>
+        </select>
+      </Field>
       <Field label="Plan"><input name="plan" placeholder="pro" required /></Field>
       <Field label="Expiry"><input name="expires_at" type="datetime-local" /></Field>
       <Field label="Features"><input name="features" placeholder="offline-cache, priority-support" /></Field>
-      {licenseKey ? <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Issued key: {licenseKey}</div> : null}
       <PrimaryButton text="Issue License" />
     </form>
   );

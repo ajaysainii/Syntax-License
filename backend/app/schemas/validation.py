@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from pydantic import EmailStr
+
+from app.services.products import normalize_product_name
 
 
 class ValidationLicensePayload(BaseModel):
@@ -22,6 +24,11 @@ class LicenseValidationRequest(BaseModel):
     version: str | None = None
     hostname: str | None = None
     platform: str | None = None
+
+    @field_validator("product")
+    @classmethod
+    def normalize_product(cls, value: str) -> str:
+        return normalize_product_name(value)
 
 
 class LicenseValidationResponse(BaseModel):

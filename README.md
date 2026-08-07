@@ -75,13 +75,19 @@ cp frontend/.env.example frontend/.env.local
 docker compose up --build
 ```
 
-3. Seed initial data:
+3. Run migrations:
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+4. Seed initial data:
 
 ```bash
 docker compose exec backend python seed.py
 ```
 
-4. Access services:
+5. Access services:
 
 - Frontend: `http://localhost:3000`
 - Backend docs: `http://localhost:8000/docs`
@@ -90,7 +96,7 @@ docker compose exec backend python seed.py
 ## Helper Scripts
 
 - `scripts/local-run.sh`
-  Starts backend and frontend together for local development, creating env files and a Python virtualenv if missing.
+  Starts backend and frontend together for local development, creating env files and a Python virtualenv if missing, then runs Alembic before seeding.
 - `scripts/deploy-server.sh`
   Deploys to a Linux server that already has Nginx and MySQL installed, runs migrations and seed data, builds the frontend, and installs two `systemd` services.
 
@@ -186,7 +192,7 @@ You can still override them when needed:
 BACKEND_PORT=8100 FRONTEND_PORT=3100 ./scripts/deploy-server.sh
 ```
 
-6. Run migrations on deploy:
+6. Run migrations on deploy before seeding or starting the backend:
 
 ```bash
 docker compose exec backend alembic upgrade head

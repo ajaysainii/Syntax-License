@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.services.products import normalize_product_name
 
 
 class ORMModel(BaseModel):
@@ -83,6 +85,11 @@ class LicenseCreate(BaseModel):
     expires_at: datetime | None = None
     features: list[str] = Field(default_factory=list)
 
+    @field_validator("product")
+    @classmethod
+    def normalize_product(cls, value: str) -> str:
+        return normalize_product_name(value)
+
 
 class LicenseRead(BaseModel):
     id: str
@@ -100,6 +107,10 @@ class LicenseRead(BaseModel):
 class LicenseCreateResponse(BaseModel):
     license_key: str
     license: LicenseRead
+
+
+class LicenseKeyRead(BaseModel):
+    license_key: str
 
 
 class LicenseListResponse(BaseModel):

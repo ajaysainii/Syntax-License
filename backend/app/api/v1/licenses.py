@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_admin
+from app.core.security import decrypt_license_key, encrypt_license_key
 from app.db.session import get_db
 from app.models.admin_user import AdminUser
 from app.models.installation import Installation
@@ -14,6 +15,7 @@ from app.schemas.common import (
     LicenseActionRequest,
     LicenseCreate,
     LicenseCreateResponse,
+    LicenseKeyRead,
     LicenseListResponse,
     LicenseRead,
 )
@@ -29,8 +31,17 @@ from app.services.licensing import (
     normalize_features,
     serialize_license,
 )
+from app.services.products import product_match_names
 
 router = APIRouter(prefix="/licenses", tags=["licenses"])
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 @router.get("", response_model=LicenseListResponse)
@@ -88,6 +99,7 @@ def create_license(
         status="active",
         features=normalize_features(payload.features),
         license_key_hash=license_hash,
+        license_key_encrypted=encrypt_license_key(plain_key),
         key_prefix=plain_key[:12],
     )
     db.add(license_row)
@@ -112,6 +124,24 @@ def create_license(
         license_key=plain_key,
         license=serialize_license(license_row),
     )
+
+
+@router.get("/{license_id}/key", response_model=LicenseKeyRead)
+def get_license_key(
+    license_id: str,
+    db: Session = Depends(get_db),
+    _: AdminUser = Depends(get_current_admin),
+) -> LicenseKeyRead:
+    license_row = db.get(License, license_id)
+    if not license_row:
+        raise HTTPException(status_code=404, detail="License not found")
+    if not license_row.license_key_encrypted:
+        raise HTTPException(status_code=404, detail="License key is unavailable for this record")
+
+    license_key = decrypt_license_key(license_row.license_key_encrypted)
+    if not license_key:
+        raise HTTPException(status_code=500, detail="Stored license key could not be decrypted")
+    return LicenseKeyRead(license_key=license_key)
 
 
 @router.post("/{license_id}/actions", response_model=LicenseRead)
@@ -158,7 +188,10 @@ def validate_license(
     license_row = db.scalar(
         select(License)
         .options(joinedload(License.user))
-        .where(License.license_key_hash == license_hash, License.product == payload.product)
+        .where(
+            License.license_key_hash == license_hash,
+            License.product.in_(product_match_names(payload.product)),
+        )
     )
 
     if not license_row:
@@ -199,7 +232,7 @@ def validate_license(
     if status_value != "active":
         valid = False
         message = f"License is {status_value}"
-    elif license_row.expires_at and license_row.expires_at < checked_at:
+    elif (expires_at := _as_utc(license_row.expires_at)) and expires_at < checked_at:
         status_value = "expired"
         valid = False
         message = "License has expired"
