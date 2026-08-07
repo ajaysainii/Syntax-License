@@ -20,6 +20,7 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
   const [licenseKey, setLicenseKey] = useState<string | null>(null);
   const [revealedLicenseKeys, setRevealedLicenseKeys] = useState<Record<string, string>>({});
   const [revealingLicenseId, setRevealingLicenseId] = useState<string | null>(null);
+  const [copiedLicenseId, setCopiedLicenseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [licenseModalOpen, setLicenseModalOpen] = useState(false);
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -127,6 +128,16 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
     } finally {
       setRevealingLicenseId(null);
     }
+  }
+
+  async function copyLicenseKey(id: string) {
+    const value = revealedLicenseKeys[id];
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopiedLicenseId(id);
+    window.setTimeout(() => {
+      setCopiedLicenseId((current) => (current === id ? null : current));
+    }, 1500);
   }
 
   async function updateLicense(id: string, action: "suspend" | "revoke" | "reactivate") {
@@ -303,8 +314,10 @@ export function ResourcePage({ kind }: { kind: ResourceKind }) {
                   rows={items as License[]}
                   onAction={updateLicense}
                   onReveal={revealLicenseKey}
+                  onCopy={copyLicenseKey}
                   revealedKeys={revealedLicenseKeys}
                   revealingLicenseId={revealingLicenseId}
+                  copiedLicenseId={copiedLicenseId}
                 />
               ) : null}
             </div>
@@ -525,14 +538,18 @@ function LicensesTable({
   rows,
   onAction,
   onReveal,
+  onCopy,
   revealedKeys,
-  revealingLicenseId
+  revealingLicenseId,
+  copiedLicenseId
 }: {
   rows: License[];
   onAction: (id: string, action: "suspend" | "revoke" | "reactivate") => Promise<void>;
   onReveal: (id: string) => Promise<void>;
+  onCopy: (id: string) => Promise<void>;
   revealedKeys: Record<string, string>;
   revealingLicenseId: string | null;
+  copiedLicenseId: string | null;
 }) {
   return (
     <TableShell>
@@ -553,15 +570,31 @@ function LicensesTable({
             </Td>
             <Td><StatusBadge status={row.status} /></Td>
             <Td className="font-mono text-xs">
-              <div className="flex items-center gap-2">
-                <span>{revealedKeys[row.id] ?? row.key_prefix}</span>
+              <div className="flex items-start gap-2">
+                <span className="break-all">{revealedKeys[row.id] ?? row.key_prefix}</span>
                 <button
-                  className="inline-flex h-7 items-center rounded-lg border border-gray-300 bg-white px-2 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+                  aria-label={revealedKeys[row.id] ? "License key shown" : "Show license key"}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   onClick={() => void onReveal(row.id)}
                   type="button"
                 >
-                  {revealingLicenseId === row.id ? "..." : "Eye"}
+                  {revealingLicenseId === row.id ? (
+                    <span className="text-[11px] font-medium">...</span>
+                  ) : (
+                    <EyeIcon />
+                  )}
                 </button>
+                {revealedKeys[row.id] ? (
+                  <button
+                    aria-label="Copy license key"
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    onClick={() => void onCopy(row.id)}
+                    title={copiedLicenseId === row.id ? "Copied" : "Copy license key"}
+                    type="button"
+                  >
+                    {copiedLicenseId === row.id ? <CheckIcon /> : <CopyIcon />}
+                  </button>
+                ) : null}
               </div>
             </Td>
             <Td className="whitespace-nowrap">
@@ -591,6 +624,50 @@ function LicensesTable({
         ))}
       </tbody>
     </TableShell>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M2 12C3.8 8.4 7.4 6 12 6C16.6 6 20.2 8.4 22 12C20.2 15.6 16.6 18 12 18C7.4 18 3.8 15.6 2 12Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <rect height="11" rx="2" stroke="currentColor" strokeWidth="1.8" width="11" x="9" y="9" />
+      <path
+        d="M6 15H5C3.9 15 3 14.1 3 13V5C3 3.9 3.9 3 5 3H13C14.1 3 15 3.9 15 5V6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M5 12.5L9.5 17L19 7.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }
 
